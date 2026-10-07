@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Audio Cutter</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { --bg:#07090d; --card:#10141b; --muted:#8e96a3; --text:#f7f7fb; --accent:#8b45ff; --accent2:#b86cff; --line:#242a35; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 80% 0%, #20113d 0, transparent 35%), var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; min-height:100vh; }
+    .app { max-width:620px; margin:0 auto; padding:18px 16px 32px; }
+    .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+    .brand { display:flex; gap:12px; align-items:center; }
+    .logo { width:44px; height:44px; border-radius:14px; display:grid; place-items:center; background:linear-gradient(135deg,#6e2cff,#a865ff); font-size:22px; box-shadow:0 8px 30px #7c3cff55; }
+    h1 { margin:0; font-size:22px; letter-spacing:-.5px; }
+    .sub { color:var(--muted); font-size:12px; margin-top:3px; }
+    .pill { color:#c8b2ff; border:1px solid #5b3b87; background:#25163c; padding:7px 10px; border-radius:99px; font-size:11px; }
+    .hero { margin:10px 0 14px; }
+    .hero h2 { margin:0 0 5px; font-size:30px; line-height:1.05; }
+    .hero p { margin:0; color:var(--muted); font-size:14px; }
+    .card { background:linear-gradient(180deg,#121720,#0d1117); border:1px solid var(--line); border-radius:20px; padding:16px; margin-top:14px; box-shadow:0 18px 50px #00000044; }
+    .file { display:flex; align-items:center; gap:12px; }
+    .fileicon { width:46px; height:46px; border-radius:14px; background:#1b1726; display:grid; place-items:center; font-size:23px; }
+    .filename { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .meta { color:var(--muted); font-size:12px; margin-top:4px; }
+    .duration { margin-left:auto; color:#d9dbe2; font-size:13px; }
+    .wavewrap { position:relative; height:150px; margin:18px 0 8px; border-radius:15px; overflow:hidden; background:#090c11; border:1px solid #202631; }
+    canvas { width:100%; height:100%; display:block; }
+    .shade { position:absolute; top:0; bottom:0; pointer-events:none; background:#0008; }
+    #leftShade { left:0; width:0; } #rightShade { right:0; width:0; }
+    .handle { position:absolute; top:0; bottom:0; width:3px; background:#cda7ff; box-shadow:0 0 14px #a75fff; cursor:ew-resize; }
+    .knob { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 0 0 5px #8b45ff44; }
+    .times { display:flex; justify-content:space-between; margin-top:10px; font-variant-numeric:tabular-nums; }
+    .timebox { text-align:center; }
+    .time { font-size:19px; font-weight:700; }
+    .label { font-size:11px; color:var(--muted); margin-top:3px; }
+    .controls { display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:8px; margin-top:16px; }
+    button, select { border:0; color:var(--text); background:#171d26; border:1px solid #29313d; border-radius:13px; min-height:46px; font-size:14px; font-weight:600; }
+    button:active { transform:scale(.98); }
+    .play { background:linear-gradient(135deg,#7735ff,#9a4cff); border:0; box-shadow:0 8px 24px #8b45ff44; }
+    .inputs { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+    .inputwrap label { display:block; color:var(--muted); font-size:11px; margin:0 0 6px 2px; }
+    input, select { width:100%; padding:0 12px; }
+    .format { margin-top:14px; }
+    .format label { display:block; color:var(--muted); font-size:11px; margin-bottom:6px; }
+    .cut { width:100%; margin-top:14px; background:linear-gradient(135deg,#7834ff,#a04dff); border:0; min-height:54px; font-size:16px; box-shadow:0 10px 30px #8b45ff3d; }
+    .status { margin-top:14px; padding:12px; border-radius:12px; background:#101722; color:#b8c0cc; font-size:13px; display:none; }
+    .success { text-align:center; padding:12px 4px; }
+    .check { width:68px; height:68px; border:3px solid #9d55ff; border-radius:50%; display:grid; place-items:center; margin:0 auto 14px; font-size:30px; }
+    .success h3 { font-size:22px; margin:0 0 6px; }
+    .success p { color:var(--muted); font-size:13px; margin:0 0 16px; }
+    .success a, .secondary { display:block; text-decoration:none; text-align:center; padding:14px; border-radius:13px; background:#171d26; color:white; border:1px solid #29313d; margin-top:8px; font-weight:600; }
+    .success a.primary { background:linear-gradient(135deg,#7834ff,#a04dff); border:0; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand"><div class="logo">✂️</div><div><h1>Audio Cutter</h1><div class="sub">Telegram Mini App</div></div></div>
+    <div class="pill">FAST • FREE</div>
+  </div>
+
+  <div id="editor">
+    <div class="hero"><h2>Trim your audio.</h2><p>Drag the handles or enter exact timestamps.</p></div>
+    <div class="card">
+      <div class="file"><div class="fileicon">🎵</div><div style="min-width:0"><div id="filename" class="filename">Loading…</div><div id="meta" class="meta">Preparing audio</div></div><div id="duration" class="duration">00:00</div></div>
+      <div class="wavewrap" id="wavewrap">
+        <canvas id="wave"></canvas><div id="leftShade" class="shade"></div><div id="rightShade" class="shade"></div>
+        <div id="startHandle" class="handle"><div class="knob"></div></div><div id="endHandle" class="handle"><div class="knob"></div></div>
+      </div>
+      <div class="times"><div class="timebox"><div id="startText" class="time">00:00</div><div class="label">START</div></div><div class="timebox"><div id="endText" class="time">00:00</div><div class="label">END</div></div></div>
+      <div class="controls"><button onclick="nudge(-10)">−10s</button><button class="play" id="playBtn" onclick="togglePlay()">▶ PLAY</button><button onclick="nudge(10)">+10s</button></div>
+      <div class="inputs"><div class="inputwrap"><label>Start time</label><input id="startInput" value="00:00" inputmode="numeric" onchange="inputTime('start',this.value)"></div><div class="inputwrap"><label>End time</label><input id="endInput" value="00:00" inputmode="numeric" onchange="inputTime('end',this.value)"></div></div>
+      <div class="format"><label>OUTPUT FORMAT</label><select id="format"><option value="mp3">MP3 (Recommended)</option><option value="m4a">M4A</option><option value="wav">WAV</option></select></div>
+      <button class="cut" id="cutBtn" onclick="cutAudio()">✂️ CUT AUDIO</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <div id="success" class="card hidden"><div class="success"><div class="check">✓</div><h3>Audio Cut Successfully!</h3><p id="successText">Your trimmed audio is ready.</p><a id="download" class="primary" href="#">⬇ Download Audio</a><button class="secondary" onclick="resetEditor()">✂️ Cut Another Part</button></div></div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const token = new URLSearchParams(location.search).get('token');
+const $ = id => document.getElementById(id);
+let duration = 0, start = 0, end = 0, audio = new Audio(), dragging = null;
+
+function fmt(s){s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
+function parseTime(v){const p=v.trim().split(':').map(Number); if(p.some(Number.isNaN)) return null; if(p.length===1)return p[0]; if(p.length===2)return p[0]*60+p[1]; if(p.length===3)return p[0]*3600+p[1]*60+p[2]; return null;}
+function render(){
+  if(!duration)return;
+  $('startText').textContent=fmt(start); $('endText').textContent=fmt(end); $('startInput').value=fmt(start); $('endInput').value=fmt(end);
+  const a=start/duration*100,b=end/duration*100;
+  $('startHandle').style.left=`calc(${a}% - 1px)`; $('endHandle').style.left=`calc(${b}% - 1px)`;
+  $('leftShade').style.width=`${a}%`; $('rightShade').style.width=`${100-b}%`;
+}
+function inputTime(which,v){const x=parseTime(v); if(x===null)return render(); if(which==='start') start=Math.min(Math.max(0,x),end-.1); else end=Math.max(Math.min(duration,x),start+.1); render();}
+function nudge(amount){const span=end-start; if(amount<0){start=Math.max(0,start+amount); end=Math.min(duration,start+span);}else{end=Math.min(duration,end+amount); start=Math.max(0,end-span);} render();}
+function togglePlay(){ if(audio.paused){ audio.currentTime=start; audio.play(); $('playBtn').textContent='❚❚ PAUSE'; }else{audio.pause(); $('playBtn').textContent='▶ PLAY';} }
+audio.addEventListener('timeupdate',()=>{ if(audio.currentTime>=end){audio.pause();audio.currentTime=start;$('playBtn').textContent='▶ PLAY';} });
+
+function handlePointer(ev,which){dragging=which; ev.preventDefault();}
+$('startHandle').addEventListener('pointerdown',e=>handlePointer(e,'start')); $('endHandle').addEventListener('pointerdown',e=>handlePointer(e,'end'));
+window.addEventListener('pointermove',e=>{ if(!dragging)return; const r=$('wavewrap').getBoundingClientRect(); let x=(e.clientX-r.left)/r.width; x=Math.max(0,Math.min(1,x)); const t=x*duration; if(dragging==='start')start=Math.min(t,end-.1);else end=Math.max(t,start+.1);render(); });
+window.addEventListener('pointerup',()=>dragging=null);
+
+async function load(){
+  if(!token){$('filename').textContent='Missing audio session'; return;}
+  try{
+    const r=await fetch(`/api/info?token=${encodeURIComponent(token)}`); const d=await r.json(); if(!r.ok)throw Error(d.error);
+    duration=d.duration||0; start=0; end=duration; $('filename').textContent=d.filename; $('meta').textContent=`Audio • ${(d.size/1024/1024).toFixed(1)} MB`; $('duration').textContent=fmt(duration); audio.src=d.media_url; render(); drawWave(d.media_url);
+  }catch(e){$('filename').textContent='Unable to load audio'; showStatus(e.message,true);}
+}
+async function drawWave(url){
+  try{
+    const res=await fetch(url); const buf=await res.arrayBuffer(); const ctx=new AudioContext(); const data=await ctx.decodeAudioData(buf); const ch=data.getChannelData(0); const c=$('wave'),r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=r.width*dpr;c.height=r.height*dpr;const x=c.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,r.width,r.height);x.fillStyle='#717a88';const step=Math.max(1,Math.floor(ch.length/r.width)); for(let px=0;px<r.width;px++){let max=0;for(let j=0;j<step;j++){const v=Math.abs(ch[px*step+j]||0);if(v>max)max=v;}const h=Math.max(2,max*r.height*.9);x.fillRect(px,(r.height-h)/2,1,h);} ctx.close();
+  }catch(e){ console.warn(e); }
+}
+function showStatus(msg,error=false){const s=$('status');s.textContent=msg;s.style.display='block';s.style.color=error?'#ff9a9a':'#b8c0cc';}
+async function cutAudio(){
+  if(end<=start){showStatus('Choose a valid start and end time.',true);return;}
+  const btn=$('cutBtn');btn.disabled=true;btn.textContent='◌ CUTTING AUDIO…';showStatus('Processing your audio…');
+  const fd=new FormData();fd.append('token',token);fd.append('start',start);fd.append('end',end);fd.append('format',$('format').value);
+  try{const r=await fetch('/api/cut',{method:'POST',body:fd});const d=await r.json();if(!r.ok)throw Error(d.error);$('successText').textContent=`${d.filename} • ${fmt(d.duration)}`;$('download').href=d.download_url;$('editor').classList.add('hidden');$('success').classList.remove('hidden');showStatus('');}catch(e){showStatus(e.message,true);}finally{btn.disabled=false;btn.textContent='✂️ CUT AUDIO';}
+}
+function resetEditor(){ $('success').classList.add('hidden');$('editor').classList.remove('hidden');render(); }
+load();
+</script>
+</body>
+</html>
